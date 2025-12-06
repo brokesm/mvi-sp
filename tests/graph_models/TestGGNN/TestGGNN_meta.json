@@ -1,0 +1,100 @@
+{
+    "py/object": "qsprpred.extra.gpu.models.gdnn.DNNModel",
+    "py/state": {
+        "device": {
+            "py/reduce": [
+                {
+                    "py/type": "torch.device"
+                },
+                {
+                    "py/tuple": [
+                        "cpu"
+                    ]
+                }
+            ]
+        },
+        "gpus": {
+            "py/tuple": [
+                0
+            ]
+        },
+        "patience": 50,
+        "tol": 0.0001,
+        "nClass": 1,
+        "nDim": 1,
+        "name": "TestGGNN",
+        "baseDir": ".",
+        "targetProperties": [
+            {
+                "py/object": "qsprpred.tasks.TargetProperty",
+                "py/state": {
+                    "name": "pchembl_value_Mean",
+                    "task": {
+                        "py/reduce": [
+                            {
+                                "py/type": "qsprpred.tasks.TargetTasks"
+                            },
+                            {
+                                "py/tuple": [
+                                    "REGRESSION"
+                                ]
+                            }
+                        ]
+                    },
+                    "imputer": null,
+                    "transformer": null
+                }
+            }
+        ],
+        "nTargets": 1,
+        "featureCalculators": [
+            {
+                "py/object": "qsprpred.data.descriptors.sets.SmilesDesc",
+                "py/state": {
+                    "idProp": "QSPRID",
+                    "descriptors": [
+                        "SMILES"
+                    ]
+                }
+            }
+        ],
+        "featureStandardizer": null,
+        "earlyStopping": {
+            "py/object": "qsprpred.models.early_stopping.EarlyStopping",
+            "py/state": {
+                "mode": {
+                    "py/reduce": [
+                        {
+                            "py/type": "qsprpred.models.early_stopping.EarlyStoppingMode"
+                        },
+                        {
+                            "py/tuple": [
+                                "OPTIMAL"
+                            ]
+                        }
+                    ]
+                },
+                "numEpochs": null,
+                "_trainedEpochs": [
+                    267
+                ],
+                "aggregateFunc": "mean"
+            }
+        },
+        "parameters": {
+            "in_feats": 150,
+            "out_feats": 150,
+            "steps": 1,
+            "n_hidden_layers": 4,
+            "dropout_rate": 0.01,
+            "batch_size": 128,
+            "n_epochs": 500,
+            "activation_in": "leaky_relu",
+            "optim": "adam",
+            "optim_lr": 0.001
+        },
+        "alg": "qsprpred.extra.gpu.models.gdnn.GGNN",
+        "randomState": 42,
+        "estimator": "./TestGGNN/TestGGNN_weights.pkg"
+    }
+}

@@ -1,3 +1,6 @@
+# KOD PRO INSPIRACI - CO MUSI!!! BYT IMPLEMENTOVANO!!!
+
+
 """This module holds the base class for DNN models
 as well as fully connected NN subclass.
 """
@@ -78,49 +81,22 @@ class GGNN(nn.Module):
         n_class,
         device,
         gpus,
-        activation_in=None,
-        optim=None,
-        scheduler=None,
-        n_epochs=5,
-        batch_size=128,
-        patience=5,
-        tol=0.001,
+        activation_in,
+        criterion,
+        optim,
+        n_epochs=100,
+        lr=None,
+        batch_size=256,
+        patience=50,
+        tol=0,
         is_reg=True,
-        in_feats=74,
-        out_feats=74,
+        in_feats=256,
+        out_feats=128,
         n_hidden_layers=2,
         dropout_rate=0.25,
+        gamma=0.8,
         steps=3,
-        etypes=1,
-        optim_lr=1e-4,
-        optim_momentum=None,
-        optim_dampening=None,
-        optim_weight_decay=None,
-        optim_nesterov=None,
-        optim_maximize=None,
-        optim_foreach=None,
-        optim_differentiable=None,
-        optim_fused=None,
-        optim_alpha=None,
-        optim_eps=None,
-        optim_centered=None,
-        optim_capturable=None,
-        optim_betas=None,
-        optim_amsgrad=None,
-        scheduler_last_epoch=None,
-        scheduler_gamma=0.95,
-        scheduler_step_size=2,
-        scheduler_milestones=[2,4,6],
-        scheduler_mode=None,
-        scheduler_factor=None,
-        scheduler_patience=None,
-        scheduler_threshold=None,
-        scheduler_threshold_mode=None,
-        scheduler_cooldown=None,
-        scheduler_min_lr=None,
-        scheduler_eps=None,
-        scheduler_T_max=5,
-        scheduler_eta_min=None,
+        etypes=1
     ):
         """Initialize the STFullyConnected model.
 
@@ -156,11 +132,15 @@ class GGNN(nn.Module):
             dropout_frac (float):
                 dropout fraction
         """
-        print("GGNN updated")
 
         super().__init__()
         self.device = torch.device(device)
         self.gpus = gpus
+        if len(self.gpus) > 1:
+            logger.warning(
+                f"At the moment multiple gpus is not possible: "
+                f"running DNN on gpu: {gpus[0]}."
+            )
         self.n_dim = n_dim
         self.is_reg = is_reg
         self.n_class = n_class if not self.is_reg else 1
@@ -170,172 +150,24 @@ class GGNN(nn.Module):
         self.dropout_rate = dropout_rate
         self.batch_size = batch_size
         self.n_epochs = n_epochs
+        self.gamma = gamma
         self.steps = steps
         self.etypes = etypes
         self.patience = patience
         self.tol = tol
+        self.lr = lr if not None else 1e-4
         self.dropout = None
         self.activation_out = None
         self.activation_in = activation_in
+        self.criterion = criterion
         self.optim = optim
-        self.scheduler = scheduler
-        self.optim_lr=optim_lr
-        self.optim_momentum=optim_momentum
-        self.optim_dampening=optim_dampening
-        self.optim_weight_decay=optim_weight_decay
-        self.optim_nesterov=optim_nesterov
-        self.optim_maximize=optim_maximize
-        self.optim_foreach=optim_foreach
-        self.optim_differentiable=optim_differentiable
-        self.optim_fused=optim_fused
-        self.optim_alpha=optim_alpha
-        self.optim_eps=optim_eps
-        self.optim_centered=optim_centered
-        self.optim_capturable=optim_capturable
-        self.optim_betas=optim_betas
-        self.optim_amsgrad=optim_amsgrad
-        self.scheduler_last_epoch=scheduler_last_epoch
-        self.scheduler_gamma=scheduler_gamma
-        self.scheduler_step_size=scheduler_step_size
-        self.scheduler_milestones=scheduler_milestones
-        self.scheduler_mode=scheduler_mode
-        self.scheduler_factor=scheduler_factor
-        self.scheduler_patience=scheduler_patience
-        self.scheduler_threshold=scheduler_threshold
-        self.scheduler_threshold_mode=scheduler_threshold_mode
-        self.scheduler_cooldown=scheduler_cooldown
-        self.scheduler_min_lr=scheduler_min_lr
-        self.scheduler_eps=scheduler_eps
-        self.scheduler_T_max=scheduler_T_max if not None else n_epochs
-        self.scheduler_eta_min=scheduler_eta_min
-        self.optim_kwargs=None
-        self.scheduler_kwargs=None
         self.layers = nn.ModuleList()
-        if len(self.gpus) > 1:
-            logger.warning(
-                f"At the moment multiple gpus is not possible: "
-                f"running DNN on gpu: {gpus[0]}."
-            )
-
-
-    def getActivationFunc(self):
-        supported = {
-            "relu": F.relu,
-            "selu": F.selu,
-            "leaky_relu": F.leaky_relu,
-            "tanh": torch.tanh
-        }
-
-        if self.activation_in is None:
-            return F.relu
-
-        if not isinstance(self.activation_in, str):
-            raise ValueError(
-                "Activation function has to be a string. \n" \
-                f"Supported activation functions: {list(supported.keys())}"
-            ) 
-
-        if self.activation_in not in supported.keys():
-            raise ValueError(
-                "Invalid argument provided.\n" \
-                f"{self.activation_in} is not supported."
-            )
+        self.initModel()
         
-        return supported[self.activation_in]
-    
-    def getOptimizer(self):
-        supported = {
-            "adam": torch.optim.Adam,
-            "sgd": torch.optim.SGD,
-            "rmsprop": torch.optim.RMSprop,
-            "adamw": torch.optim.AdamW,
-        }
 
-        signature = inspect.signature(supported[self.optim].__init__) \
-        if self.optim is not None \
-        else inspect.signature(torch.optim.Adam.__init__)
-
-        kwargs = {param.name: param.default for param in signature.parameters.values() if param.default is not param.empty}
-        signature_GGNN = inspect.signature(self.__init__)
-
-        to_update = {
-            ggnn_param.name.split("optim_")[1]: getattr(self, ggnn_param.name) 
-            for ggnn_param in signature_GGNN.parameters.values() 
-            if ggnn_param.name.startswith("optim_") 
-                and getattr(self,ggnn_param.name) is not None
-                and ggnn_param.name.split("optim_")[1] in kwargs.keys()
-                    }
-        
-        kwargs.update(to_update)
-
-        if self.optim is None:
-            return torch.optim.Adam, kwargs
-
-        if not isinstance(self.optim, str):
-            raise ValueError(
-                "Optimizer has to be a string.\n" \
-                f"Supported optimizers: {list(supported.keys())}"
-            ) 
-
-        if self.optim not in supported.keys():
-            raise ValueError(
-                "Invalid argument provided.\n" \
-                f"{self.optim} is not supported." \
-                f"\nSupported optimizers: {list(supported.keys())}"
-            )
-        
-        return supported[self.optim], kwargs
-    
-    def getScheduler(self):
-        supported = {
-            "exp": torch.optim.lr_scheduler.ExponentialLR,
-            "step": torch.optim.lr_scheduler.StepLR,
-            "multi_step": torch.optim.lr_scheduler.MultiStepLR,
-            "reduce_on_plateau": torch.optim.lr_scheduler.ReduceLROnPlateau,
-            "cosine": torch.optim.lr_scheduler.CosineAnnealingLR,
-            
-        }
-
-        if self.scheduler is None:
-            return None, None
-
-        signature = inspect.signature(supported[self.scheduler].__init__)
-
-        kwargs = {param.name: param.default for param in signature.parameters.values() if param.name != "self" and param.name != "optimizer"}
-        signature_GGNN = inspect.signature(self.__init__)
-
-        to_update = {
-            ggnn_param.name.split("scheduler_")[1]: getattr(self, ggnn_param.name) 
-            for ggnn_param in signature_GGNN.parameters.values() 
-            if ggnn_param.name.startswith("scheduler_") 
-                and getattr(self,ggnn_param.name) is not None
-                and ggnn_param.name.split("scheduler_")[1] in kwargs.keys()
-                    }
-
-        kwargs.update(to_update)
-
-        if not isinstance(self.scheduler, str):
-            raise ValueError(
-                "Scheduler has to be a string.\n" \
-                f"Supported schedulers: {list(supported.keys())}"
-            ) 
-
-        if self.scheduler not in supported.keys():
-            raise ValueError(
-                "Invalid argument provided.\n" \
-                f"{self.scheduler} is not supported." \
-                f"\nSupported schedulers: {list(supported.keys())}"
-            )
-        
-        return supported[self.scheduler], kwargs
-        
     def initModel(self):
         """Define the layers of the model."""
         self.dropout = nn.Dropout(self.dropout_rate)
-        self.activation_in = self.getActivationFunc()
-        self.optim, self.optim_kwargs = self.getOptimizer()
-        self.scheduler, self.scheduler_kwargs = self.getScheduler()
-        
         for i in range(self.n_hidden_layers):
             if i == 0:
                 set_in_feats = self.in_feats
@@ -359,11 +191,11 @@ class GGNN(nn.Module):
         elif self.n_class == 1:
             # loss and activation function of output layer for binary classification
             self.criterion = nn.BCELoss()
-            self.activation_out = nn.Sigmoid()
+            self.activation = nn.Sigmoid()
         else:
             # loss and activation function of output layer for multiple classification
             self.criterion = nn.CrossEntropyLoss()
-            self.activation_out = nn.Softmax(dim=1)
+            self.activation = nn.Softmax(dim=1)
 
     @classmethod
     def _get_param_names(cls) -> list:
@@ -441,7 +273,7 @@ class GGNN(nn.Module):
         self.initModel()
         return self
 
-    def forward(self, graph, features) -> torch.Tensor:
+    def forward(self, graph, features, is_train=False) -> torch.Tensor:
         """Invoke the class directly as a function.
 
         Args:
@@ -457,25 +289,25 @@ class GGNN(nn.Module):
         """
 
         features = features.to(graph.device)
-        h = self.activation_in(self.layers[0](graph, features))
-        h = self.dropout(h)
+        y = self.activation(self.layers[0].forward(graph, features))
+        if is_train:    
+            y = self.dropout(y)
         for i in range(self.n_hidden_layers):
             if i == 0:
                 continue
             else:
-                h = self.activation_in(self.layers[i](graph, h))  
-                if i < self.n_hidden_layers - 1:
-                    h = self.dropout(h)
-
-        h = self.pooling(graph, h)
+                y = self.activation(self.layers[i].forward(graph, y))  
+                if i < self.n_hidden_layers - 1 and is_train:
+                    y = self.dropout(y)
+        y = self.pooling(graph, y)
         if self.is_reg:
-            return self.output_layer(h)
-        return self.activation_out(self.output_layer(h))
+            return self.output_layer(y)
+        return self.activation_out(self.output_layer(y))
 
     def collate(self, samples): 
         if len(samples[0]) == 2:
             graphs = [s[0] for s in samples]
-            labels = [s[1] for s in samples]
+            labels = [s[1].item() for s in samples]
             batched_graph = dgl.batch(graphs)
             if self.is_reg:
                 labels = torch.tensor(labels,dtype=torch.float32)
@@ -488,7 +320,7 @@ class GGNN(nn.Module):
             return batched_graph
 
 
-    def getLoader(self, X, y, batch_size, schuffle=False, include_labels=False):
+    def getLoader(self, X, y, batch_size, schuffle=True, include_labels=False):
         graphs, labels = [], []
         for i in range(len(X)):
 
@@ -528,60 +360,54 @@ class GGNN(nn.Module):
         return loader
     
 
-    def fit(self, X, y, Xval=None, yval=None, monitor=None):
+    def fit(self, X, y, Xval=None, yval=None, monitor=None, optimizer=None):
         print("Fitting...")
-
         self.to(self.device)
         monitor = BaseMonitor() if monitor is None else monitor
 
-        train_loader = self.getLoader(X, y, batch_size=self.batch_size, schuffle=False, include_labels=True)
+        train_loader = self.getLoader(X, y, batch_size=self.batch_size, schuffle=True, include_labels=True)
         val_loader = None
         if (Xval is not None and yval is not None):
             val_loader = self.getLoader(Xval, yval, batch_size=self.batch_size, schuffle=False, include_labels=True)
             patience = self.patience
         else:
             patience = -1
-
-        optimizer = self.optim(self.parameters(), **self.optim_kwargs)
-        scheduler = self.scheduler(optimizer, **self.scheduler_kwargs) if self.scheduler is not None else None
+        if "optim" in self.__dict__:
+            optimizer = self.optim
+        else:
+            optimizer = optim.Adam(self.parameters(), lr=self.lr)
         
-        scaler = torch.GradScaler(self.device)    
         best_loss = np.inf
         best_weights = self.state_dict()
         last_save = 0  # record the epoch when optimal model is saved.
         for epoch in range(self.n_epochs):
-            self.train()
-            optimizer.zero_grad()
             monitor.onEpochStart(epoch)
             loss = None
+            self.train()
+            # decrease learning rate over the epochs
+            for param_group in optimizer.param_groups:
+                param_group["lr"] = self.lr * (1 - 1 / self.n_epochs) ** (epoch * 10)
             for batch_idx, (batched_graph, target) in enumerate(train_loader):
                 monitor.onBatchStart(batch_idx)
                 # Batch of target tenor and label tensor
                 batched_graph, target = batched_graph.to(self.device), target.to(self.device)
-                batched_graph.ndata['h'] = batched_graph.ndata['h'].float().to(self.device)
+                batched_graph.ndata['y'] = batched_graph.ndata['y'].float().to(self.device)
+                optimizer.zero_grad()
                 # predicted probability tensor
-                logits = self.forward(batched_graph, batched_graph.ndata['h'].float())
+                logits = self.forward(batched_graph, batched_graph.ndata['y'], is_train=True)
 
                 if self.n_class > 1:
                     loss = self.criterion(logits, target.long())
                 else:
-                    loss = self.criterion(logits.squeeze(), target)
-
-                scaler.scale(loss).backward() 
-                scaler.step(optimizer) 
-                scaler.update()  
-                optimizer.zero_grad() 
+                    loss = self.criterion(logits, target)
+                loss.backward()
+                optimizer.step()
                 monitor.onBatchEnd(batch_idx, float(loss))
             if patience == -1:
                 monitor.onEpochEnd(epoch, loss.item())
             else:
                 # loss value on validation set based on which optimal model is saved.
                 loss_valid = self.evaluate(val_loader)
-                if isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
-                    scheduler.step(loss_valid)
-                elif scheduler is not None: 
-                    scheduler.step()
-                    
                 if loss_valid + self.tol < best_loss:
                     best_weights = self.state_dict()
                     best_loss = loss_valid
@@ -589,7 +415,6 @@ class GGNN(nn.Module):
                 elif epoch - last_save > patience:  # early stop
                     break
                 monitor.onEpochEnd(epoch, loss.item(), loss_valid)
-
         if patience == -1:
             best_weights = self.state_dict()
         self.load_state_dict(best_weights)
@@ -602,8 +427,8 @@ class GGNN(nn.Module):
         with torch.no_grad():      
             for batched_graph in test_loader:       
                 batched_graph = batched_graph.to(self.device)   
-                node_features = batched_graph.ndata['h'].to(self.device).float()
-                logits = self.forward(batched_graph, node_features.float())
+                node_features = batched_graph.ndata['y'].to(self.device).float()
+                logits = self.forward(batched_graph, node_features)
 
                 score.append(logits.detach().cpu())
         score = torch.cat(score, dim=0).numpy()
@@ -630,15 +455,14 @@ class GGNN(nn.Module):
         with torch.no_grad():
             for batched_graph, target in loader:
                 batched_graph, target = batched_graph.to(self.device), target.to(self.device)
-                batched_graph.ndata["h"] = batched_graph.ndata["h"].float().to(self.device)
-                logits = self.forward(batched_graph, batched_graph.ndata['h'].float())
-                print("Standard dev:",np.std(logits.tolist()))
+                batched_graph.ndata["y"] = batched_graph.ndata["y"].float().to(self.device)
+                logits = self.forward(batched_graph, batched_graph.ndata['h'], is_train=False)
+
                 if self.n_class > 1:
-                    loss += self.criterion(logits.squeeze(), target.long()).item()
+                    loss += self.criterion(logits, target.long()).item()
                 else:
-                    loss += self.criterion(logits.squeeze(), target).item()
+                    loss += self.criterion(logits, target).item()
         loss = loss / len(loader)
-        print("Val loss:",loss)
         return loss
 
 
@@ -707,7 +531,9 @@ class DNNModel(QSPRModelPyTorchGPU):
             autoload: bool = True,
             gpus: list[int] = DEFAULT_TORCH_GPUS,
             patience: int = 50,
-            tol: float = 0
+            tol: float = 0,
+            optimizer = torch.optim.Adam,
+            activation = F.relu
     ):
         """Initialize a DNNModel model.
 
@@ -740,6 +566,8 @@ class DNNModel(QSPRModelPyTorchGPU):
         self.gpus = None
         self.patience = patience
         self.tol = tol
+        self.optimizer = optimizer
+        self.activation = activation
         self.nClass = None
         self.nDim = None
                 
@@ -799,14 +627,15 @@ class DNNModel(QSPRModelPyTorchGPU):
             gpus=self.gpus,
             is_reg=self.task == ModelTasks.REGRESSION,
             patience=self.patience,
-            tol=self.tol
+            tol=self.tol,
+            #parameters=params,
+            activation_in=self.activation
         ).to(self.device)
         # set parameters if available and return
-
+        #FIXED load parameters
         new_parameters = self.getParameters(params)
         if new_parameters is not None:
            estimator.set_params(**new_parameters)
-        # estimator.initModel()
         return estimator
 
     def loadEstimatorFromFile(
@@ -908,6 +737,7 @@ class DNNModel(QSPRModelPyTorchGPU):
                 X[val_index, :],
                 y[val_index],
                 monitor=monitor,
+                optimizer=self.optimizer,
                 **kwargs,
             )
             monitor.onFitEnd(estimator_fit[0], estimator_fit[1])
@@ -915,7 +745,13 @@ class DNNModel(QSPRModelPyTorchGPU):
         monitor.onFitStart(self, X, y)
         # set fixed number of epochs if early stopping is not used
         estimator.n_epochs = self.earlyStopping.getEpochs()
-        estimator_fit = estimator.fit(X, y, monitor=monitor,**kwargs)
+        estimator_fit = estimator.fit(
+            X, 
+            y, 
+            monitor=monitor,
+            optimizer=self.optimizer,
+            **kwargs
+        )
         monitor.onFitEnd(estimator_fit[0])
         return estimator_fit
 
