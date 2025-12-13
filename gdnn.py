@@ -634,7 +634,7 @@ class GGNN(nn.Module):
                 logits = self.forward(batched_graph, batched_graph.ndata['h'].float())
                 print("Standard dev:",np.std(logits.tolist()))
                 if self.n_class > 1:
-                    loss += self.criterion(logits.squeeze(), target.long()).item()
+                    loss += self.criterion(logits, target.long()).item()
                 else:
                     loss += self.criterion(logits.squeeze(), target).item()
         loss = loss / len(loader)

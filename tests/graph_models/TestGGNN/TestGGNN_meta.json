@@ -18,8 +18,8 @@
                 0
             ]
         },
-        "patience": 50,
-        "tol": 0.0001,
+        "patience": 10,
+        "tol": 0.001,
         "nClass": 1,
         "nDim": 1,
         "name": "TestGGNN",
@@ -69,29 +69,31 @@
                         },
                         {
                             "py/tuple": [
-                                "OPTIMAL"
+                                "RECORDING"
                             ]
                         }
                     ]
                 },
                 "numEpochs": null,
                 "_trainedEpochs": [
-                    267
+                    25
                 ],
                 "aggregateFunc": "mean"
             }
         },
         "parameters": {
-            "in_feats": 150,
-            "out_feats": 150,
-            "steps": 1,
+            "in_feats": 250,
+            "out_feats": 250,
+            "steps": 3,
             "n_hidden_layers": 4,
-            "dropout_rate": 0.01,
+            "dropout_rate": 0.2,
             "batch_size": 128,
             "n_epochs": 500,
             "activation_in": "leaky_relu",
-            "optim": "adam",
-            "optim_lr": 0.001
+            "optim": "sgd",
+            "optim_lr": 0.001,
+            "scheduler": "exp",
+            "scheduler_gamma": 0.8
         },
         "alg": "qsprpred.extra.gpu.models.gdnn.GGNN",
         "randomState": 42,
