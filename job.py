@@ -36,14 +36,8 @@ from qsprpred.extra.gpu.models.gdnn import GGNN
 importlib.reload(gdnn_module)
 
 
-# args = sys.argv[1:]
-# original idea: target + split; options string "d:s:" gives -d <target> -s <split>
-# OPTIONS = "d:s:"
 BASE_DIR = "/home/brokesm/mvi-sp"
-#BASE_DIR = "/mnt/c/Users/marti/OneDrive/Plocha/vscht/magister/treti_rocnik/mvi/mvi-sp"
 LOG_DIR = os.path.join(BASE_DIR, "output/logs")
-
-
 
 #Define models and search spaces here
 model_ggnn = gdnn_module.DNNModel(
@@ -136,33 +130,11 @@ def write_log(target, split, path: str, err: str | BaseException) -> None:
         sys.stderr.write(f"[LOGGING ERROR] {e}\nOriginal error:\n{message}\n")
 
 
-# def parse_args() -> tuple[str, str]:
-#     """Parse CLI args and return (target, split). Logs and exits on failure."""
-#     target = None
-#     split = None
-#     try:
-#         arguments, values = getopt.getopt(args, OPTIONS)
-#         for currentArg, currentVal in arguments:
-#             if currentArg == "-d":
-#                 target = currentVal
-#             elif currentArg == "-s":
-#                 split = currentVal
-#         return target, split
-#     except getopt.GetoptError as err:
-#         write_log(target, split, LOG_DIR, err)
-#         sys.exit(1)
-
-#     if target is None or split is None:
-#         write_log(target, split, LOG_DIR, f"Missing required arguments: target={target}, split={split}")
-#         sys.exit(1)
-
-
 #create a folder structure
 def ensure_output_dirs() -> None:
     os.makedirs(os.path.join(BASE_DIR,"output/models"), exist_ok=True)
     os.makedirs(os.path.join(BASE_DIR,"output/benchmarking/data"), exist_ok=True)
     os.makedirs(os.path.join(BASE_DIR,"output/optimization/data"), exist_ok=True)
-
 
 
 # define a customsplit class
@@ -599,8 +571,6 @@ def benchmark(
 
 
 def main(target,split) -> None:
-
-    # target, split = parse_args()
     ensure_output_dirs()
 
     # Hyperparameter optimization for all three models
@@ -635,7 +605,6 @@ if __name__ == "__main__":
             try:
                 main(target,split)
             except Exception as e:
-                # target, split = parse_args()
                 # catch any unhandled exceptions and log them
                 write_log(target, split, LOG_DIR, e)
                 sys.exit(1)
