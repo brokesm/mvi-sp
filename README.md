@@ -36,7 +36,9 @@ Conda has been installed and a new environment created.
 Three packages had to be installed manually using the following commands:
 
 `conda install -c dglteam/label/th24_cu121 dgl`
+
 `pip install qsprpred[chemprop]`
+
 `pip install git+https://github.com/brokesm/QSPRpred.git@add-graph-dl`
 
 Afterwards, the remaining dependencies can be installed from `gnn_project_env.yml`.
