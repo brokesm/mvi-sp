@@ -36,7 +36,7 @@ from qsprpred.extra.gpu.models.gdnn import GGNN
 importlib.reload(gdnn_module)
 
 
-BASE_DIR = "/home/brokesm/mvi-sp"
+BASE_DIR = "/home/brokesm/scratch/job"
 LOG_DIR = os.path.join(BASE_DIR, "output/logs")
 
 #Define models and search spaces here
